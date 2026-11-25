@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>年末ジャンボあみだくじ</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-root" id="app-root">
+    <header class="host-bar" id="host-bar">
+      <div class="brand-group">
+        <span class="brand-title">🎋年末ジャンボあみだくじ🎋</span>
+        <span class="progress-badge" id="progress-badge">残り 18 / 18名</span>
+      </div>
+
+      <div class="toolbar-actions">
+        <button id="btn-next-random" class="btn btn-primary" type="button" title="未抽選の人からランダムに1人スタート (Space)">
+          🎲 ランダム1人
+        </button>
+        <button id="btn-all-start" class="btn btn-accent" type="button" title="残りのメンバー全員を一斉にスタート">
+          ⚡ 残り全員一斉
+        </button>
+        <button id="btn-manual-rung" class="btn" type="button" title="盤面の縦線の間をクリックして横線を1本追加">
+          ＋ 横線追加
+        </button>
+        <button id="btn-regenerate" class="btn" type="button" title="あみだの横線をランダムに作り直す">
+          🔀 再生成
+        </button>
+        <button id="btn-toggle-fog" class="btn" type="button" title="中盤の霧を一時的に晴らす／戻す">
+          ☁ 霧を晴らす
+        </button>
+        <button id="btn-results" class="btn" type="button" title="当選結果一覧を表示">
+          📋 結果一覧
+        </button>
+        <button id="btn-setup" class="btn" type="button" title="参加者・景品・演出の設定">
+          ⚙ 設定
+        </button>
+        <button id="btn-sound" class="btn" type="button" title="BGM・効果音 ON/OFF (M)">
+          🔊 音声ON
+        </button>
+        <button id="btn-fullscreen" class="btn" type="button" title="全画面表示切替 (F)">
+          ⛶ 全画面
+        </button>
+      </div>
+    </header>
+
+    <main class="stage-wrap" id="stage-wrap">
+      <div class="canvas-box">
+        <canvas id="stage-canvas" width="1280" height="720"></canvas>
+
+        <div class="floating-hint hidden" id="manual-hint">
+          ✏ 縦線と縦線の間をクリックして横線を追加できます（もう一度「＋ 横線追加」で終了）
+        </div>
+
+        <div class="floating-hint idle-tip" id="idle-tip">
+          💡 上の名前タグを直接クリックしてもスタートできます
+        </div>
+
+        <button id="btn-goal-continue" class="btn-goal-continue hidden" type="button">
+          ▶ 次の抽選へ進む (Space)
+        </button>
+      </div>
+    </main>
+  </div>
+
+  <!-- Setup Modal -->
+  <div class="modal-backdrop hidden" id="modal-setup" role="dialog" aria-modal="true" aria-labelledby="setup-modal-title">
+    <div class="modal-card modal-wide">
+      <div class="modal-header">
+        <h2 id="setup-modal-title">⚙ 参加者・景品・演出の設定</h2>
+        <button id="btn-close-setup" class="modal-close" type="button" aria-label="閉じる">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="setup-columns">
+          <div class="field-group">
+            <div class="field-header">
+              <label for="input-names">参加者リスト（1行1名・2〜24名）</label>
+              <span class="count-pill" id="count-names">0名</span>
+            </div>
+            <textarea id="input-names" rows="10" spellcheck="false" placeholder="田中&#10;佐藤&#10;鈴木..."></textarea>
+            <div class="field-actions">
+              <button id="btn-shuffle-names" class="btn btn-sm" type="button">🔀 順番をシャッフル</button>
+            </div>
+          </div>
+
+          <div class="field-group">
+            <div class="field-header">
+              <label for="input-prizes">景品リスト（先頭に「★」で特賞演出）</label>
+              <span class="count-pill" id="count-prizes">0個</span>
+            </div>
+            <textarea id="input-prizes" rows="10" spellcheck="false" placeholder="★温泉旅行&#10;高級和牛&#10;美容家電..."></textarea>
+            <div class="field-actions">
+              <button id="btn-shuffle-prizes" class="btn btn-sm" type="button">🔀 景品をシャッフル</button>
+              <button id="btn-load-sample" class="btn btn-sm" type="button">📝 18名サンプル読込</button>
+            </div>
+          </div>
+        </div>
+
+        <p class="mismatch-note hidden" id="mismatch-note"></p>
+
+        <div class="options-panel">
+          <h3>演出・ルール設定</h3>
+          <div class="options-grid">
+            <label class="opt-check">
+              <input type="checkbox" id="opt-fog" checked />
+              <span>中盤以降を霧で隠す（通った道だけ見える）</span>
+            </label>
+            <label class="opt-check">
+              <input type="checkbox" id="opt-xcross" checked />
+              <span>斜め下交差（×）を入れる</span>
+            </label>
+            <label class="opt-check">
+              <input type="checkbox" id="opt-slowmo" checked />
+              <span>ゴール前スロー＆急加速ダッシュ演出</span>
+            </label>
+            <label class="opt-check">
+              <input type="checkbox" id="opt-zoom" checked />
+              <span>1人ずつズーム追従カメラ</span>
+            </label>
+            <label class="opt-select">
+              <span>あみだの複雑さ：</span>
+              <select id="opt-complexity">
+                <option value="normal">ふつう（見やすさ重視）</option>
+                <option value="complex" selected>複雑（おすすめ）</option>
+                <option value="ultra">超複雑（激アツ）</option>
+              </select>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button id="btn-reset-progress" class="btn btn-danger" type="button">↺ 抽選結果をリセット</button>
+        <div class="footer-right">
+          <button id="btn-cancel-setup" class="btn" type="button">キャンセル</button>
+          <button id="btn-apply-setup" class="btn btn-primary" type="button">✔ この内容で盤面を作る</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results Modal -->
+  <div class="modal-backdrop hidden" id="modal-results" role="dialog" aria-modal="true" aria-labelledby="results-modal-title">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="results-modal-title">📋 当選結果一覧</h2>
+        <button id="btn-close-results" class="modal-close" type="button" aria-label="閉じる">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <p class="results-summary" id="results-summary">当選済み 0名 / 全18名</p>
+        <div class="results-table-wrap">
+          <table class="results-table">
+            <thead>
+              <tr>
+                <th>順</th>
+                <th>参加者</th>
+                <th>獲得景品</th>
+                <th>区分</th>
+              </tr>
+            </thead>
+            <tbody id="results-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button id="btn-copy-results" class="btn" type="button">📄 テキストコピー</button>
+        <button id="btn-csv-results" class="btn btn-accent" type="button">⬇ CSV保存</button>
+        <button id="btn-ok-results" class="btn btn-primary" type="button">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="nobilkun.js"></script>
+  <script src="sound.js"></script>
+  <script src="ladder.js"></script>
+  <script src="renderer.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
